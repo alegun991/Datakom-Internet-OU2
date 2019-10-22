@@ -14,15 +14,10 @@ class Node {
     private DatagramChannel aliveChannel, udpChannel;
     private ServerSocketChannel acceptChannel;
     private SocketChannel predecessor, successor;
-
     private Selector selector;
-
     private InetSocketAddress tracker;
-
     private int minHash, maxHash;
-
     private HashMap<SSN, Entry> map;
-
     private String selfAddress;
 
     public static void main(String[] args) throws IOException {
@@ -225,7 +220,7 @@ class Node {
         System.out.println("Received VAL_INSERT with: " + ssnReceived + " " + nameReceived + " " + emailReceived);
 
         if (hashCode >= minHash && hashCode <= maxHash) {
-            if (map.get(ssn) == null) {
+            if (!map.containsValue(ssn)) {
                 Entry entry = new Entry(ssnReceived, nameReceived, emailReceived);
                 map.put(ssn, entry);
                 System.out.println("Inserted in position: " + hashCode);
@@ -252,7 +247,7 @@ class Node {
 
         if (hashCode >= minHash && hashCode <= maxHash) {
 
-            if (map.get(ssn) != null) {
+            if (map.containsValue(ssn)) {
                 for (Map.Entry<SSN, Entry> entry : map.entrySet()) {
 
                     String key = entry.getKey().getSSN();
@@ -301,7 +296,7 @@ class Node {
 
         if (hashCode >= minHash && hashCode <= maxHash) {
 
-            if (map.get(ssn) != null) {
+            if (map.containsValue(ssn)) {
                 for (Iterator<Map.Entry<SSN, Entry>> it = map.entrySet().iterator(); it.hasNext(); ) {
 
                     Map.Entry<SSN, Entry> entry = it.next();
