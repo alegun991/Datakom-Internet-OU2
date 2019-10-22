@@ -111,7 +111,7 @@ class Node {
 
         } else {
             System.out.println("Response is not empty, sending NET_JOIN!");
-
+            map = new HashMap<>();
             try {
                 short port = (short) acceptChannel.socket().getLocalPort();
                 int acceptPort = Short.toUnsignedInt(port);
@@ -171,11 +171,9 @@ class Node {
 
                         } else if (p.type == PDU.VAL_LOOKUP) {
                             handleIncomingValueLookup((VAL_LOOKUP_PDU) p);
-                            //buffer.clear();
 
                         } else if (p.type == PDU.VAL_REMOVE) {
                             handleIncomingValueRemove((VAL_REMOVE_PDU) p);
-                            //buffer.clear();
                         }
 
                     } else if (key.isReadable() && c == udpChannel) {
@@ -191,11 +189,11 @@ class Node {
 
                             } else if (p.type == PDU.VAL_LOOKUP) {
                                 handleIncomingValueLookup((VAL_LOOKUP_PDU) p);
-                                //buffer.clear();
+                                buffer.clear();
 
                             } else if (p.type == PDU.VAL_REMOVE) {
                                 handleIncomingValueRemove((VAL_REMOVE_PDU) p);
-                                //buffer.clear();
+                                buffer.clear();
 
                             } else
                                 buffer.rewind();
@@ -227,11 +225,15 @@ class Node {
         System.out.println("Received VAL_INSERT with: " + ssnReceived + " " + nameReceived + " " + emailReceived);
 
         if (hashCode >= minHash && hashCode <= maxHash) {
-            Entry entry = new Entry(ssnReceived, nameReceived, emailReceived);
-            map.put(ssn, entry);
-            System.out.println("Inserted in position: " + hashCode);
-        } else {
+            if (map.get(ssn) == null) {
+                Entry entry = new Entry(ssnReceived, nameReceived, emailReceived);
+                map.put(ssn, entry);
+                System.out.println("Inserted in position: " + hashCode);
+            } else {
+                System.out.println("Already an entry in position: " + hashCode);
+            }
 
+        } else {
             try {
                 pdu.send(successor);
                 System.out.println("Position " + hashCode + " is not in my table, forwarded to successor!");
@@ -250,28 +252,32 @@ class Node {
 
         if (hashCode >= minHash && hashCode <= maxHash) {
 
-            for (Map.Entry<SSN, Entry> entry : map.entrySet()) {
+            if (map.get(ssn) != null) {
+                for (Map.Entry<SSN, Entry> entry : map.entrySet()) {
 
-                String key = entry.getKey().getSSN();
+                    String key = entry.getKey().getSSN();
 
-                if (key.equals(ssnReceived)) {
-                    String ssnResponse = entry.getValue().getSSN().getSSN();
-                    String nameResponse = entry.getValue().getName();
-                    String emailResponse = entry.getValue().getEmail();
+                    if (key.equals(ssnReceived)) {
+                        String ssnResponse = entry.getValue().getSSN().getSSN();
+                        String nameResponse = entry.getValue().getName();
+                        String emailResponse = entry.getValue().getEmail();
 
-                    VAL_LOOKUP_RESPONSE_PDU lookup_response_pdu = new VAL_LOOKUP_RESPONSE_PDU(ssnResponse, nameResponse, emailResponse);
+                        VAL_LOOKUP_RESPONSE_PDU lookup_response_pdu = new VAL_LOOKUP_RESPONSE_PDU(ssnResponse, nameResponse, emailResponse);
 
-                    try {
-                        DatagramChannel channel = DatagramChannel.open();
-                        channel.connect(new InetSocketAddress(pdu.getSendAddress(), pdu.getSendPort()));
-                        lookup_response_pdu.send(channel);
-                        System.out.println("LOOKUP_RESPONSE sent!");
-                        channel.close();
+                        try {
+                            DatagramChannel channel = DatagramChannel.open();
+                            channel.connect(new InetSocketAddress(pdu.getSendAddress(), pdu.getSendPort()));
+                            lookup_response_pdu.send(channel);
+                            System.out.println("LOOKUP_RESPONSE sent!");
+                            channel.close();
 
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
+            } else {
+                System.out.println("No entry in position: " + hashCode);
             }
 
         } else {
@@ -295,15 +301,19 @@ class Node {
 
         if (hashCode >= minHash && hashCode <= maxHash) {
 
-            for (Iterator<Map.Entry<SSN, Entry>> it = map.entrySet().iterator(); it.hasNext(); ) {
+            if (map.get(ssn) != null) {
+                for (Iterator<Map.Entry<SSN, Entry>> it = map.entrySet().iterator(); it.hasNext(); ) {
 
-                Map.Entry<SSN, Entry> entry = it.next();
-                String key = entry.getKey().getSSN();
+                    Map.Entry<SSN, Entry> entry = it.next();
+                    String key = entry.getKey().getSSN();
 
-                if (key.equals(ssnReceived)) {
-                    it.remove();
-                    System.out.println("Removed entry from position: " + hashCode);
+                    if (key.equals(ssnReceived)) {
+                        it.remove();
+                        System.out.println("Removed entry from position: " + hashCode);
+                    }
                 }
+            } else {
+                System.out.println("No entry in position: " + hashCode);
             }
 
         } else {

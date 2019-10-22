@@ -13,6 +13,7 @@ public class VAL_INSERT_PDU extends PDU {
 
         super(PDU.VAL_INSERT);
         var buffer = readAllBytes(buf, src);
+        buffer.get();
         byte[] a = new byte[13];
         buffer.get(a);
         ssn = new String(a);
