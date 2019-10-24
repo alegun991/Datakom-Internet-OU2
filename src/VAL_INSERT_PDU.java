@@ -9,6 +9,13 @@ public class VAL_INSERT_PDU extends PDU {
     private String name;
     private String email;
 
+    public VAL_INSERT_PDU(String ssn, String name, String email){
+        super(PDU.VAL_INSERT);
+        this.ssn = ssn;
+        this.name = name;
+        this.email = email;
+    }
+
     public VAL_INSERT_PDU(ByteBuffer buf, ByteChannel src) throws IOException {
 
         super(PDU.VAL_INSERT);

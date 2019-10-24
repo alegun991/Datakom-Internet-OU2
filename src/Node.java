@@ -85,6 +85,7 @@ class Node {
         selfAddress = pdu.getAddress();
         System.out.printf("Got STUN_RESPONSE, my address is %s\n", selfAddress.substring(0,
                 selfAddress.indexOf('\0')));
+
     }
 
     private void handleGetNodeResponse(NET_GET_NODE_RESPONSE_PDU pdu) {
@@ -169,36 +170,36 @@ class Node {
 
                         } else if (p.type == PDU.VAL_REMOVE) {
                             handleIncomingValueRemove((VAL_REMOVE_PDU) p);
+                        } else {
+                            System.out.println("Got invalid PDU!");
                         }
 
                     } else if (key.isReadable() && c == udpChannel) {
                         var buffer = ByteBuffer.allocate(300);
                         ((DatagramChannel) key.channel()).receive(buffer);
                         buffer.flip();
-                        while (buffer.hasRemaining()) {
-                            p = PDU.create(buffer, null);
-
-                            if (p.type == PDU.VAL_INSERT) {
-                                handleIncomingValueInsert((VAL_INSERT_PDU) p);
-                                buffer.clear();
-
-                            } else if (p.type == PDU.VAL_LOOKUP) {
-                                handleIncomingValueLookup((VAL_LOOKUP_PDU) p);
-                                buffer.clear();
-
-                            } else if (p.type == PDU.VAL_REMOVE) {
-                                handleIncomingValueRemove((VAL_REMOVE_PDU) p);
-                                buffer.clear();
-
-                            } else
-                                buffer.rewind();
-                            break;
-                        }
                         p = PDU.create(buffer, null);
                         if (p.type == PDU.NET_JOIN) {
                             System.out.println("Received a NET_JOIN over Udp channel!");
                             handleIncomingJoin((NET_JOIN_PDU) p);
                         }
+                        else if (p.type == PDU.VAL_INSERT) {
+                            handleIncomingValueInsert((VAL_INSERT_PDU) p);
+                            buffer.clear();
+
+                        } else if (p.type == PDU.VAL_LOOKUP) {
+                            handleIncomingValueLookup((VAL_LOOKUP_PDU) p);
+                            buffer.clear();
+
+                        } else if (p.type == PDU.VAL_REMOVE) {
+                            handleIncomingValueRemove((VAL_REMOVE_PDU) p);
+                            buffer.clear();
+
+                        } else {
+                            System.out.println("Got invalid PDU!");
+                        }
+
+
                     }
                 }
                 selector.selectedKeys().clear();
@@ -217,18 +218,15 @@ class Node {
 
         SSN ssn = new SSN(ssnReceived);
         int hashCode = ssn.hashCode();
-        System.out.println("Received VAL_INSERT with: " + ssnReceived + " " + nameReceived + " " + emailReceived);
-
+        //System.out.println("Received VAL_INSERT with: " + ssnReceived + " " + nameReceived + " " + emailReceived);
+        System.out.println("Detta är hashvärdet: " + hashCode + "ssn: " + ssn);
+        //TODO: check that current hash range is smaller than size of map
         if (hashCode >= minHash && hashCode <= maxHash) {
-            if (!map.containsValue(ssn)) {
-                Entry entry = new Entry(ssnReceived, nameReceived, emailReceived);
-                map.put(ssn, entry);
-                System.out.println("Inserted in position: " + hashCode);
-            } else {
-                System.out.println("Already an entry in position: " + hashCode);
-            }
-
+            Entry entry = new Entry(ssnReceived, nameReceived, emailReceived);
+            map.put(ssn, entry);
+            System.out.println("Inserted in position: " + hashCode);
         } else {
+
             try {
                 pdu.send(successor);
                 System.out.println("Position " + hashCode + " is not in my table, forwarded to successor!");
@@ -236,6 +234,7 @@ class Node {
                 System.err.println("Could not send VAL_INSERT to successor " + e.toString());
             }
         }
+
     }
 
     private void handleIncomingValueLookup(VAL_LOOKUP_PDU pdu) {
@@ -247,34 +246,31 @@ class Node {
 
         if (hashCode >= minHash && hashCode <= maxHash) {
 
-            if (map.containsValue(ssn)) {
-                for (Map.Entry<SSN, Entry> entry : map.entrySet()) {
-
-                    String key = entry.getKey().getSSN();
-
-                    if (key.equals(ssnReceived)) {
-                        String ssnResponse = entry.getValue().getSSN().getSSN();
-                        String nameResponse = entry.getValue().getName();
-                        String emailResponse = entry.getValue().getEmail();
-
-                        VAL_LOOKUP_RESPONSE_PDU lookup_response_pdu = new VAL_LOOKUP_RESPONSE_PDU(ssnResponse, nameResponse, emailResponse);
-
-                        try {
-                            DatagramChannel channel = DatagramChannel.open();
-                            channel.connect(new InetSocketAddress(pdu.getSendAddress(), pdu.getSendPort()));
-                            lookup_response_pdu.send(channel);
-                            System.out.println("LOOKUP_RESPONSE sent!");
-                            channel.close();
-
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            } else {
-                System.out.println("No entry in position: " + hashCode);
+            if (map.size() == 0) {
+                System.out.println("No values in table");
+                VAL_LOOKUP_RESPONSE_PDU lookup_response_pdu = new VAL_LOOKUP_RESPONSE_PDU(ssnReceived, "", "");
+                lookupResponse(lookup_response_pdu, pdu.getSendAddress(), pdu.getSendPort());
             }
 
+            for (Map.Entry<SSN, Entry> entry : map.entrySet()) {
+
+                String key = entry.getKey().getSSN();
+
+                if (key.equals(ssnReceived)) {
+                    String ssnResponse = entry.getValue().getSSN().getSSN();
+                    String nameResponse = entry.getValue().getName();
+                    String emailResponse = entry.getValue().getEmail();
+
+                    VAL_LOOKUP_RESPONSE_PDU lookup_response_pdu = new VAL_LOOKUP_RESPONSE_PDU(ssnResponse, nameResponse, emailResponse);
+
+                    lookupResponse(lookup_response_pdu, pdu.getSendAddress(), pdu.getSendPort());
+
+                } else {
+                    System.out.println("Could not find ssn: " + ssnReceived + " in table");
+                    VAL_LOOKUP_RESPONSE_PDU lookup_response_pdu = new VAL_LOOKUP_RESPONSE_PDU(ssnReceived, "", "");
+                    lookupResponse(lookup_response_pdu, pdu.getSendAddress(), pdu.getSendPort());
+                }
+            }
         } else {
 
             try {
@@ -283,6 +279,19 @@ class Node {
             } catch (IOException e) {
                 System.err.println("Could not send LOOKUP_RESPONSE to successor " + e.getMessage());
             }
+        }
+    }
+
+    private void lookupResponse(VAL_LOOKUP_RESPONSE_PDU pdu, String address, int port) {
+        try {
+            DatagramChannel channel = DatagramChannel.open();
+            channel.connect(new InetSocketAddress(address, port));
+            pdu.send(channel);
+            System.out.println("LOOKUP_RESPONSE sent!");
+            channel.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -296,7 +305,7 @@ class Node {
 
         if (hashCode >= minHash && hashCode <= maxHash) {
 
-            if (map.containsValue(ssn)) {
+            if (map.size() != 0) {
                 for (Iterator<Map.Entry<SSN, Entry>> it = map.entrySet().iterator(); it.hasNext(); ) {
 
                     Map.Entry<SSN, Entry> entry = it.next();
@@ -351,6 +360,29 @@ class Node {
 
                 response_pdu.send(successor);
 
+                SSN ssn;
+                int hashCode;
+                if (!map.isEmpty()){
+
+                    for (Map.Entry<SSN, Entry> entry : map.entrySet()) {
+
+                        String key = entry.getKey().getSSN();
+                        String entrySsn = entry.getValue().getSSN().getSSN();
+                        String name = entry.getValue().getName();
+                        String email = entry.getValue().getEmail();
+                        ssn = new SSN(key);
+                        hashCode = ssn.hashCode();
+
+                        if (hashCode > maxHash) {
+                            System.out.println("sending Value insert to successor for hash value: " + hashCode);
+                            VAL_INSERT_PDU valInsertPdu = new VAL_INSERT_PDU(entrySsn, name, email);
+                            valInsertPdu.send(successor);
+                        }
+
+                    }
+
+                }
+
             } catch (IOException e) {
                 System.err.println("Could not connect to successor " + e.toString());
             }
@@ -384,7 +416,7 @@ class Node {
         int hashCode = ssn.hashCode();
 
         if (hashCode >= minHash && hashCode <= maxHash) {
-            Entry entry = new Entry(ssnReceived, nameReceived, emailReceived);
+            Entry entry = new Entry(ssn, nameReceived, emailReceived);
             map.put(ssn, entry);
         } else {
             pdu.send(successor);
