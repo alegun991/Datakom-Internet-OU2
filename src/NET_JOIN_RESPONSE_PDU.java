@@ -16,22 +16,20 @@ public class NET_JOIN_RESPONSE_PDU extends PDU {
         this.nextPort = nextPort;
         this.rangeStart = rangeStart;
         this.rangeEnd = rangeEnd;
-
     }
 
     public NET_JOIN_RESPONSE_PDU(ByteBuffer buf, ByteChannel src) throws IOException {
         super(PDU.NET_JOIN_RESPONSE);
-        var buffer = readAllBytes(buf, src);
-        buffer.get();
+        var buffer = ByteBuffer.allocate(21);
+        src.read(buffer);
+        buffer.flip();
         byte[] a = new byte[16];
         buffer.get(a);
         nextAddress = new String(a);
         buffer.get();
-        nextPort = Short.toUnsignedInt(buf.getShort());
+        nextPort = Short.toUnsignedInt(buffer.getShort());
         rangeStart = Byte.toUnsignedInt(buffer.get());
         rangeEnd = Byte.toUnsignedInt(buffer.get());
-
-
     }
 
     @Override

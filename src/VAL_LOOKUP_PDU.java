@@ -11,8 +11,10 @@ public class VAL_LOOKUP_PDU extends PDU {
 
     public VAL_LOOKUP_PDU(ByteBuffer buf, ByteChannel src) throws IOException {
         super(PDU.VAL_LOOKUP);
-        var buffer = readAllBytes(buf, src);
-        buffer.get();
+
+        var buffer = ByteBuffer.allocate(31);
+        src.read(buffer);
+        buffer.flip();
         byte[] a = new byte[13];
         buffer.get(a);
         ssn = new String(a);

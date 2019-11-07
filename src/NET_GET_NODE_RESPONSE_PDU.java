@@ -5,7 +5,7 @@ class NET_GET_NODE_RESPONSE_PDU extends PDU {
     private String address;
     private int port;
 
-    public NET_GET_NODE_RESPONSE_PDU(ByteBuffer buf, ByteChannel src) {
+    public NET_GET_NODE_RESPONSE_PDU(ByteBuffer buf) {
         super(PDU.NET_GET_NODE_RESPONSE);
         byte[] a = new byte[16];
         buf.get(a);

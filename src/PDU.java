@@ -12,36 +12,29 @@ abstract class PDU {
 
     public abstract void send(ByteChannel channel) throws IOException;
 
-    public ByteBuffer readAllBytes(ByteBuffer buf, ByteChannel src) throws IOException {
+    /*
+    public void readAllBytes(ByteChannel src, int size, ByteBuffer buffer) throws IOException {
+        int s = src.read(buffer);
 
-        while (buf.hasRemaining()) {
-
-            src.read(buf);
-            if (buf.limit() != buf.position()) {
-                buf.get();
-            }
+        while (s != size) {
+            s = src.read(buffer);
         }
-        buf.rewind();
-        return buf;
-    }
+    }*/
+
 
     public static PDU create(ByteBuffer buffer, ByteChannel src) throws IOException {
         int t = Byte.toUnsignedInt(buffer.get());
         PDU p = null;
         switch (t) {
             case STUN_RESPONSE:
-                p = new STUN_RESPONSE_PDU(buffer, src);
+                p = new STUN_RESPONSE_PDU(buffer);
                 break;
             case NET_GET_NODE_RESPONSE:
-                p = new NET_GET_NODE_RESPONSE_PDU(buffer, src);
+                p = new NET_GET_NODE_RESPONSE_PDU(buffer);
                 break;
             case NET_JOIN:
-                if(src == null){
-                    p = new NET_JOIN_PDU(buffer);
-                }
-                else{
-                    p = new NET_JOIN_PDU(buffer);
-                }
+                p = new NET_JOIN_PDU(buffer);
+
                 break;
             case NET_JOIN_RESPONSE:
                 p = new NET_JOIN_RESPONSE_PDU(buffer, src);

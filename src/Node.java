@@ -1,12 +1,8 @@
-import org.w3c.dom.ls.LSOutput;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 class Node {
@@ -39,6 +35,7 @@ class Node {
 
         acceptChannel = ServerSocketChannel.open();
         acceptChannel.configureBlocking(false);
+        acceptChannel.bind(new InetSocketAddress(0));
 
         initializeNode();
         runNode();
@@ -52,14 +49,11 @@ class Node {
 
         while (running) {
 
-            if (selector.select(1000) == 0) {
-                p = new NET_ALIVE_PDU(udpChannel.socket().getLocalPort());
-                p.send(aliveChannel);
-            }
+            selector.select();
 
             for (SelectionKey key : selector.selectedKeys()) {
                 if (key.isReadable()) {
-                    ByteBuffer buffer = ByteBuffer.allocate(30);
+                    ByteBuffer buffer = ByteBuffer.allocate(100);
                     ((DatagramChannel) key.channel()).receive(buffer);
                     buffer.flip();
 
@@ -89,7 +83,7 @@ class Node {
     }
 
     private void handleGetNodeResponse(NET_GET_NODE_RESPONSE_PDU pdu) {
-        System.out.println("Got NODE_RESPONSE:");
+        System.out.println("Got NODE_RESPONSE");
         PDU p = new NET_ALIVE_PDU(udpChannel.socket().getLocalPort());
 
         if (pdu.getPort() == 0) {
@@ -107,6 +101,7 @@ class Node {
 
         } else {
             System.out.println("Response is not empty, sending NET_JOIN!");
+
             map = new HashMap<>();
             try {
                 short port = (short) acceptChannel.socket().getLocalPort();
@@ -116,10 +111,9 @@ class Node {
                 PDU join = new NET_JOIN_PDU(selfAddress, acceptPort);
                 DatagramChannel chnl = DatagramChannel.open();
                 chnl.connect(new InetSocketAddress(pdu.getAddress(), pdu.getPort()));
+                System.out.println("sending join to address: " + pdu.getAddress() + " and port: " + pdu.getPort());
                 join.send(chnl);
                 chnl.close();
-
-                acceptChannel.bind(new InetSocketAddress(selfAddress, acceptPort));
 
             } catch (IOException e) {
 
@@ -128,12 +122,14 @@ class Node {
         }
     }
 
-    private void runNode() {
+    private void runNode() throws IOException {
         boolean running = true;
-        PDU p;
+        PDU p = null;
+        acceptChannel.register(selector, SelectionKey.OP_ACCEPT);
 
         while (running) {
 
+            //HEHEHEHEHEHEHEHEHEHEHE
             try {
                 if (selector.select(1000) == 0) {
                     p = new NET_ALIVE_PDU(udpChannel.socket().getLocalPort());
@@ -145,45 +141,48 @@ class Node {
                     Channel c = key.channel();
 
                     if (key.isAcceptable() && c == acceptChannel) {
-                        predecessor = ((ServerSocketChannel) key.channel()).accept();
+                        predecessor = acceptChannel.accept();
                         predecessor.configureBlocking(false);
-                        predecessor.register(selector, SelectionKey.OP_READ, ByteBuffer.allocate(60));
+                        predecessor.register(selector, SelectionKey.OP_READ, ByteBuffer.allocate(1));
                         System.out.println("Connected to predecessor!");
 
                     } else if (key.isReadable() && c == predecessor) {
 
                         var buffer = (ByteBuffer) key.attachment();
-
-                        ((SocketChannel) key.channel()).read(buffer);
+                        predecessor.read(buffer);
                         buffer.flip();
+
                         p = PDU.create(buffer, (ByteChannel) key.channel());
 
                         if (p.type == PDU.NET_JOIN_RESPONSE) {
                             handleNetJoinResponse((NET_JOIN_RESPONSE_PDU) p);
-                            buffer.clear();
+                            buffer.compact();
 
                         } else if (p.type == PDU.VAL_INSERT) {
-                            handleRangeTcp((VAL_INSERT_PDU) p);
+                            handleIncomingValueInsert((VAL_INSERT_PDU) p);
+                            buffer.compact();
 
                         } else if (p.type == PDU.VAL_LOOKUP) {
                             handleIncomingValueLookup((VAL_LOOKUP_PDU) p);
 
                         } else if (p.type == PDU.VAL_REMOVE) {
                             handleIncomingValueRemove((VAL_REMOVE_PDU) p);
+
                         } else {
                             System.out.println("Got invalid PDU!");
+
                         }
 
+
                     } else if (key.isReadable() && c == udpChannel) {
-                        var buffer = ByteBuffer.allocate(300);
+                        var buffer = ByteBuffer.allocate(1000);
                         ((DatagramChannel) key.channel()).receive(buffer);
                         buffer.flip();
                         p = PDU.create(buffer, null);
                         if (p.type == PDU.NET_JOIN) {
                             System.out.println("Received a NET_JOIN over Udp channel!");
                             handleIncomingJoin((NET_JOIN_PDU) p);
-                        }
-                        else if (p.type == PDU.VAL_INSERT) {
+                        } else if (p.type == PDU.VAL_INSERT) {
                             handleIncomingValueInsert((VAL_INSERT_PDU) p);
                             buffer.clear();
 
@@ -208,6 +207,7 @@ class Node {
                 System.out.println("Something went wrong: " + e.toString());
             }
         }
+
     }
 
     private void handleIncomingValueInsert(VAL_INSERT_PDU pdu) {
@@ -218,9 +218,7 @@ class Node {
 
         SSN ssn = new SSN(ssnReceived);
         int hashCode = ssn.hashCode();
-        //System.out.println("Received VAL_INSERT with: " + ssnReceived + " " + nameReceived + " " + emailReceived);
-        System.out.println("Detta är hashvärdet: " + hashCode + "ssn: " + ssn);
-        //TODO: check that current hash range is smaller than size of map
+
         if (hashCode >= minHash && hashCode <= maxHash) {
             Entry entry = new Entry(ssnReceived, nameReceived, emailReceived);
             map.put(ssn, entry);
@@ -305,19 +303,8 @@ class Node {
 
         if (hashCode >= minHash && hashCode <= maxHash) {
 
-            if (map.size() != 0) {
-                for (Iterator<Map.Entry<SSN, Entry>> it = map.entrySet().iterator(); it.hasNext(); ) {
-
-                    Map.Entry<SSN, Entry> entry = it.next();
-                    String key = entry.getKey().getSSN();
-
-                    if (key.equals(ssnReceived)) {
-                        it.remove();
-                        System.out.println("Removed entry from position: " + hashCode);
-                    }
-                }
-            } else {
-                System.out.println("No entry in position: " + hashCode);
+            if (map.entrySet().removeIf(entry -> entry.getKey().hashCode() == hashCode)) {
+                System.out.println("Removed " + ssnReceived + "from map");
             }
 
         } else {
@@ -339,9 +326,9 @@ class Node {
             System.out.println("I am the only node in network, sending JOIN_RESPONSE");
             try {
                 successor = SocketChannel.open();
+                successor.socket().bind(new InetSocketAddress(selfAddress, 0));
                 successor.connect(new InetSocketAddress(src_address, src_port));
                 successor.configureBlocking(false);
-                successor.register(selector, SelectionKey.OP_CONNECT);
                 successor.register(selector, SelectionKey.OP_WRITE);
                 System.out.println("Successor connected!");
 
@@ -350,10 +337,8 @@ class Node {
                 maxHash = span.getMaxRangeP();
                 System.out.println("Updated range is: " + minHash + "-" + maxHash);
 
-                acceptChannel.register(selector, SelectionKey.OP_ACCEPT);
                 short port = (short) acceptChannel.socket().getLocalPort();
                 int acceptPort = Short.toUnsignedInt(port);
-                acceptChannel.bind(new InetSocketAddress(selfAddress, acceptPort));
 
                 NET_JOIN_RESPONSE_PDU response_pdu = new NET_JOIN_RESPONSE_PDU(
                         selfAddress, acceptPort, span.getMinRangeS(), span.getMaxRangeS());
@@ -362,7 +347,7 @@ class Node {
 
                 SSN ssn;
                 int hashCode;
-                if (!map.isEmpty()){
+                if (!map.isEmpty()) {
 
                     for (Map.Entry<SSN, Entry> entry : map.entrySet()) {
 
@@ -397,9 +382,12 @@ class Node {
 
         try {
             successor = SocketChannel.open();
+            successor.socket().bind(new InetSocketAddress(0));
             successor.connect(new InetSocketAddress(pdu.getAddress(), pdu.getPort()));
+            successor.configureBlocking(false);
             System.out.println("Successor connected!");
             System.out.println("My range is: " + minHash + "-" + maxHash);
+
         } catch (IOException e) {
 
             System.err.println("Could not connect to successor " + e.getMessage());
@@ -416,10 +404,12 @@ class Node {
         int hashCode = ssn.hashCode();
 
         if (hashCode >= minHash && hashCode <= maxHash) {
-            Entry entry = new Entry(ssn, nameReceived, emailReceived);
+            Entry entry = new Entry(ssnReceived, nameReceived, emailReceived);
             map.put(ssn, entry);
+            System.out.println("Inserted in position: " + hashCode);
         } else {
             pdu.send(successor);
+            System.out.println(hashCode + " is not in my range, forwarded to successor");
         }
     }
 }
