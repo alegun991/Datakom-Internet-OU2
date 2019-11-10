@@ -1,7 +1,7 @@
 import java.nio.channels.*;
 import java.nio.ByteBuffer;
 import java.io.IOException;
-import java.util.Objects;
+
 
 abstract class PDU {
     int type;
@@ -34,7 +34,6 @@ abstract class PDU {
                 break;
             case NET_JOIN:
                 p = new NET_JOIN_PDU(buffer);
-
                 break;
             case NET_JOIN_RESPONSE:
                 p = new NET_JOIN_RESPONSE_PDU(buffer, src);

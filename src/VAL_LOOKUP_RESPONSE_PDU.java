@@ -60,6 +60,17 @@ public class VAL_LOOKUP_RESPONSE_PDU extends PDU {
         channel.write(buffer);
 
     }
+    public void entryNotFound(ByteChannel channel) throws IOException {
+
+        var buffer = ByteBuffer.allocate(24);
+
+        buffer.put((byte) type);
+        byte[] b = new byte[23];
+        buffer.put(b);
+        buffer.flip();
+
+        channel.write(buffer);
+    }
 
 
     public String getSsn() {
