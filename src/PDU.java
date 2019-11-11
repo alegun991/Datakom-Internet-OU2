@@ -12,14 +12,21 @@ abstract class PDU {
 
     public abstract void send(ByteChannel channel) throws IOException;
 
-    /*
-    public void readAllBytes(ByteChannel src, int size, ByteBuffer buffer) throws IOException {
-        int s = src.read(buffer);
 
-        while (s != size) {
-            s = src.read(buffer);
+    public void readAllBytes(ByteChannel src, int size, ByteBuffer buffer) throws IOException {
+        int bytesRead = 0;
+
+        while (bytesRead < size) {
+            int n = src.read(buffer);
+            if (n > 0){
+                bytesRead += n;
+            }
+            if(n < 0){
+                System.out.println("lost connection!");
+                break;
+            }
         }
-    }*/
+    }
 
 
     public static PDU create(ByteBuffer buffer, ByteChannel src) throws IOException {

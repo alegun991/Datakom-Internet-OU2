@@ -2,7 +2,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -207,8 +206,9 @@ class Node {
                 selector.selectedKeys().clear();
 
             } catch (IOException e) {
-                System.out.println("Something went wrong: " + e.toString());
+                System.out.println("Port is unreachable: " + e.getMessage());
             }
+
         }
 
     }

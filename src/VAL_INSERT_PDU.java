@@ -19,12 +19,8 @@ public class VAL_INSERT_PDU extends PDU {
     public VAL_INSERT_PDU(ByteBuffer buffer, ByteChannel src) throws IOException {
         super(PDU.VAL_INSERT);
 
-        int bytesRead;
         var buffer1 = ByteBuffer.allocate(15);
-        bytesRead = src.read(buffer1);
-        if(bytesRead != 15){
-            src.read(buffer1);
-        }
+        readAllBytes(src, 15, buffer1);
         buffer1.flip();
 
         byte[] a = new byte[13];
@@ -33,11 +29,9 @@ public class VAL_INSERT_PDU extends PDU {
         var nameLength = buffer1.get();
         buffer1.get();
 
-        var buffer2 = ByteBuffer.allocate(nameLength + 8);
-        bytesRead = src.read(buffer2);
-        if(bytesRead != (nameLength + 8)){
-            src.read(buffer2);
-        }
+        int size = nameLength + 8;
+        var buffer2 = ByteBuffer.allocate(size);
+        readAllBytes(src, size, buffer2);
         buffer2.flip();
         byte[] b = new byte[nameLength];
         buffer2.get(b);
@@ -50,10 +44,7 @@ public class VAL_INSERT_PDU extends PDU {
         buffer2.get(c);
 
         var buffer3 = ByteBuffer.allocate(emailLength);
-        bytesRead = src.read(buffer3);
-        if(bytesRead != emailLength){
-            src.read(buffer3);
-        }
+        readAllBytes(src, emailLength, buffer3);
         buffer3.flip();
         byte[] d = new byte[emailLength];
         buffer3.get(d);
