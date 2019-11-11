@@ -13,7 +13,7 @@ public class VAL_LOOKUP_PDU extends PDU {
         super(PDU.VAL_LOOKUP);
 
         var buffer = ByteBuffer.allocate(31);
-        src.read(buffer);
+        readAllBytes(src, 31, buffer);
         buffer.flip();
         byte[] a = new byte[13];
         buffer.get(a);

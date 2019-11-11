@@ -21,7 +21,7 @@ public class NET_JOIN_RESPONSE_PDU extends PDU {
     public NET_JOIN_RESPONSE_PDU(ByteBuffer buf, ByteChannel src) throws IOException {
         super(PDU.NET_JOIN_RESPONSE);
         var buffer = ByteBuffer.allocate(21);
-        src.read(buffer);
+        readAllBytes(src, 21, buffer);
         buffer.flip();
         byte[] a = new byte[16];
         buffer.get(a);

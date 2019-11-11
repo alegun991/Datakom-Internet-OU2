@@ -17,7 +17,7 @@ public class VAL_REMOVE_PDU extends PDU{
     public VAL_REMOVE_PDU(ByteBuffer buf, ByteChannel src) throws IOException {
         super(PDU.VAL_REMOVE);
         var buffer = ByteBuffer.allocate(13);
-        src.read(buffer);
+        readAllBytes(src, 13, buffer);
         buffer.flip();
         byte[] a = new byte[13];
         buffer.get(a);
