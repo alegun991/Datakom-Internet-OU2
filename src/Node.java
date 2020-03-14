@@ -125,7 +125,7 @@ class Node {
 
     private void runNode() throws IOException {
         boolean running = true;
-        PDU p = null;
+        PDU p;
         acceptChannel.register(selector, SelectionKey.OP_ACCEPT);
 
         while (running) {
@@ -170,7 +170,12 @@ class Node {
                             handleIncomingValueRemove((VAL_REMOVE_PDU) p);
                             buffer.compact();
 
-                        } else {
+                        }
+                        else if (p.type == PDU.NET_JOIN){
+                            System.out.println("Received a NET_JOIN from predecessor");
+                            handleIncomingJoin((NET_JOIN_PDU) p);
+                        }
+                        else {
                             System.out.println("Got invalid PDU!");
 
                         }
@@ -295,13 +300,11 @@ class Node {
 
             if (entryFound) {
                 pdu.send(channel);
-                System.out.println("LOOKUP_RESPONSE sent!");
-                channel.close();
             } else {
                 pdu.entryNotFound(channel);
-                System.out.println("LOOKUP_RESPONSE sent!");
-                channel.close();
             }
+            System.out.println("LOOKUP_RESPONSE sent!");
+            channel.close();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -348,6 +351,8 @@ class Node {
     private void handleIncomingJoin(NET_JOIN_PDU pdu) {
         String src_address = pdu.getSrc_address();
         int src_port = pdu.getSrc_port();
+        short port = (short) acceptChannel.socket().getLocalPort();
+        int acceptPort = Short.toUnsignedInt(port);
 
         if (successor == null) {
 
@@ -364,9 +369,6 @@ class Node {
                 minHash = span.getMinRangeP();
                 maxHash = span.getMaxRangeP();
                 System.out.println("Updated range is: " + minHash + "-" + maxHash);
-
-                short port = (short) acceptChannel.socket().getLocalPort();
-                int acceptPort = Short.toUnsignedInt(port);
 
                 NET_JOIN_RESPONSE_PDU response_pdu = new NET_JOIN_RESPONSE_PDU(
                         selfAddress, acceptPort, span.getMinRangeS(), span.getMaxRangeS());

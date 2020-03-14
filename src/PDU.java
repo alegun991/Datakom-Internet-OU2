@@ -18,10 +18,10 @@ abstract class PDU {
 
         while (bytesRead < size) {
             int n = src.read(buffer);
-            if (n > 0){
+            if (n > 0) {
                 bytesRead += n;
             }
-            if(n < 0){
+            if (n < 0) {
                 System.out.println("lost connection!");
                 break;
             }
@@ -40,7 +40,12 @@ abstract class PDU {
                 p = new NET_GET_NODE_RESPONSE_PDU(buffer);
                 break;
             case NET_JOIN:
-                p = new NET_JOIN_PDU(buffer);
+                if (src == null) {
+                    p = new NET_JOIN_PDU(buffer);
+                }
+                else{
+                    p = new NET_JOIN_PDU(buffer, src);
+                }
                 break;
             case NET_JOIN_RESPONSE:
                 p = new NET_JOIN_RESPONSE_PDU(buffer, src);
@@ -78,9 +83,6 @@ abstract class PDU {
     public static final int NET_GET_NODE_RESPONSE = 2;
     public static final int NET_JOIN = 3;
     public static final int NET_JOIN_RESPONSE = 4;
-    public static final int NET_CLOSE_CONNECTION = 5;
-    public static final int NET_NEW_RANGE = 6;
-    public static final int NET_LEAVING = 7;
     public static final int VAL_INSERT = 100;
     public static final int VAL_REMOVE = 101;
     public static final int VAL_LOOKUP = 102;
